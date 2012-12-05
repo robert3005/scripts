@@ -185,13 +185,14 @@ class mailFVAT(threading.Thread):
 if __name__ == '__main__':
 
     parser = OptionParser()
-    parser.add_option("-c", "--config", default='/home/magmaster/.mailFVAT', dest="filename", help="location of config file", metavar="CONFIG")
+    parser.add_option("-c", "--config", default='/root/.mailfv', dest="filename", help="location of config file", metavar="CONFIG")
     options, args = parser.parse_args()
+    retCode = 0
 
-    waitDaemon = threading.Event()
-    waitDaemon.clear()
-    retCode = Daemonize.createDaemon(022, '/', '/tmp/mailfv/error.log', 1024, waitDaemon)
-    waitDaemon.wait()
+    #waitDaemon = threading.Event()
+    #waitDaemon.clear()
+    #retCode = Daemonize.createDaemon(022, '/', 1024, waitDaemon)
+    #waitDaemon.wait()
 
     def handler(signum, frame):
         gmail.exit()

@@ -41,7 +41,7 @@ if (hasattr(os, "devnull")):
 else:
    REDIRECT_TO = "/dev/null"
 
-def createDaemon(umask, workdir, error_stream, fdNum, done):
+def createDaemon(umask, workdir, fdNum, done):
    """Detach a process from the controlling terminal and run it in the
    background as a daemon.
    """
