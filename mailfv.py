@@ -164,6 +164,13 @@ class mailFVAT(threading.Thread):
         rc, data = self.M.uid('STORE', uid, '+X-GM-LABELS', label)
         self.logger.info('Added label {0} for uid {1:d}'.format(label, uid))
 
+    def convert(self, data, outputCoding='utf-8'):
+        coding = icu.CharsetDetector(data).detect().getName()
+        print coding
+        if outputCoding.upper() != coding.upper():
+            data = unicode(data, coding, "replace").encode(outputCoding)
+        return data
+
     def getAttachments(self, uid, folder):
         directory = os.path.join(self.config.get('mail', 'directory'), folder)
         self.logger.info('Fetching attachments for {0:d} to {1}'.format(uid, directory))
@@ -171,16 +178,12 @@ class mailFVAT(threading.Thread):
         rc, data = self.M.uid('FETCH', uid, '(RFC822)')
         msg = email.message_from_string(data[0][1])
         for part in msg.walk():
-            content_type = part.get_content_type()
-            if content_type != 'application/octet-stream':
-                continue
-            filename = part.get_filename()
-            attachment = part.get_payload(decode=True)
-            if not attachment:
-                continue
-            attachment_file = open(os.path.join(directory, filename), 'w')
-            attachment_file.write(unicode(attachment, 'cp1250', "ignore").encode('utf-8'))
-            attachment_file.close()
+            if part.has_key("Content-Disposition") and part.get("Content-Disposition").find("attachment") >= 0:
+                filename = part.get_filename()
+                attachment = part.get_payload(decode=True)
+                attachment_file = open(os.path.join(directory, filename), 'w')
+                attachment_file.write(self.convert(attachment, 'utf-8'))
+                attachment_file.close()
         self.M.uid('STORE', uid, '+FLAGS', '\SEEN')
 
     def search(self, criteria='ALL'):
