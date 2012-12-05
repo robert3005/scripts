@@ -1,11 +1,21 @@
 #!/usr/bin/env python26
-import imaplib2, email, os, sys, logging, threading, signal, chardet
+import imaplib2, email, os, sys, logging, threading, signal, chardet, icu
 import email.parser
 import email.header
 import Daemonize
 import logging.handlers
 from ConfigParser import SafeConfigParser
 from optparse import OptionParser
+
+class stdErrWriter(object):
+
+    def __init__(self, logger, logLevel):
+        self.logLevel = logLevel
+        self.logger = logger
+
+    def write(self, buf):
+        print buf
+        #self.logger.log(self.logLevel, buf)
 
 class mailFVAT(threading.Thread):
 
@@ -27,6 +37,17 @@ class mailFVAT(threading.Thread):
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
+
+        # create logger for errors
+        errLogger = logging.getLogger('stdErr')
+        errLogger.setLevel(logging.ERROR)
+        errHandler = logging.handlers.RotatingFileHandler('/tmp/mailfv_error.log', maxBytes=1048576, backupCount=10)
+        errHandler.setLevel(logging.ERROR)
+        errFormatter = logging.Formatter('%(asctime)s - %(message)s')
+        errHandler.setFormatter(errFormatter)
+        errLogger.addHandler(errHandler)
+        # redirect stderr
+        sys.stderr = stdErrWriter(errLogger, logging.ERROR)
 
         self.M = imaplib2.IMAP4_SSL('imap.gmail.com')
 
