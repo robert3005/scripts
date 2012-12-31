@@ -63,6 +63,10 @@ class mailFVAT(threading.Thread):
             existingUIDs = newUIDs
         self.logout()
 
+    def resetIDLE(self):
+        self.logger.info('Resetting connection after 1h waiting')
+        self.lockEvent.set()
+
     def idle(self, knownUIDs):
         self.logger.debug('Starting IDLE command')
 
@@ -77,7 +81,10 @@ class mailFVAT(threading.Thread):
         self.M.idle(timeout=60*self.timeout, callback=imapIDLECallback)
 
         self.logger.info('Waiting for IDLE server reply')
+        reset = threading.Timer(3600,self.resetIDLE)
+        reset.start()
         self.lockEvent.wait()
+        reset.cancel()
         if not self.killNow:
             if not self.callbackSuccess:
                 self.logger.error('Server error during IDLE request')
