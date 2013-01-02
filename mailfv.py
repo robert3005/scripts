@@ -14,8 +14,7 @@ class stdErrWriter(object):
         self.logger = logger
 
     def write(self, buf):
-        print buf
-        #self.logger.log(self.logLevel, buf)
+        self.logger.log(self.logLevel, buf)
 
 class mailFVAT(threading.Thread):
 
@@ -23,7 +22,7 @@ class mailFVAT(threading.Thread):
     killNow = False
     M = None
     config = SafeConfigParser()
-    timeout = 29
+    resetTimeout = False
     filters = []
 
     def __init__(self):
@@ -65,11 +64,13 @@ class mailFVAT(threading.Thread):
 
     def resetIDLE(self):
         self.logger.info('Resetting connection after 1h waiting')
-        self.lockEvent.set()
+        self.resetTimeout = True
+        self.M.noop()
 
     def idle(self, knownUIDs):
         self.logger.debug('Starting IDLE command')
 
+        self.resetTimeout = False
         self.lockEvent.clear()
         self.callbackSuccess = False
 
@@ -78,10 +79,10 @@ class mailFVAT(threading.Thread):
             self.callbackSuccess = data[1][0] == 'IDLE terminated (Success)'
             self.lockEvent.set()
 
-        self.M.idle(timeout=60*self.timeout, callback=imapIDLECallback)
+        self.M.idle(timeout=60*30, callback=imapIDLECallback)
 
         self.logger.info('Waiting for IDLE server reply')
-        reset = threading.Timer(3600,self.resetIDLE)
+        reset = threading.Timer(3600, self.resetIDLE)
         reset.start()
         self.lockEvent.wait()
         reset.cancel()
@@ -89,8 +90,7 @@ class mailFVAT(threading.Thread):
             if not self.callbackSuccess:
                 self.logger.error('Server error during IDLE request')
 
-            isTimeout = self.M.response('IDLE')
-            if isTimeout[1][0] != 'TIMEOUT':
+            if not self.isTimeout():
                 newUIDs = self.search('ALL')
                 unknownUIDs = [uid for uid in newUIDs if uid not in knownUIDs]
                 uidOfInterest = self.filterMessages(unknownUIDs)
@@ -98,7 +98,13 @@ class mailFVAT(threading.Thread):
                 return newUIDs
             else:
                 self.logger.info('IDLE request timeout occured')
-        return []
+        return knownUIDs
+
+    def isTimeout(self):
+        if not self.resetTimeout:
+            isTimeout = self.M.response('IDLE')
+            return isTimeout[1][0] == 'TIMEOUT'
+        return True
 
     def exit(self):
         self.logger.info('Exitting')
@@ -220,10 +226,10 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
     retCode = 0
 
-    #waitDaemon = threading.Event()
-    #waitDaemon.clear()
-    #retCode = Daemonize.createDaemon(022, '/', 1024, waitDaemon)
-    #waitDaemon.wait()
+    waitDaemon = threading.Event()
+    waitDaemon.clear()
+    retCode = Daemonize.createDaemon(022, '/', 1024, waitDaemon)
+    waitDaemon.wait()
 
     def handler(signum, frame):
         gmail.exit()
